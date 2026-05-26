@@ -1865,8 +1865,8 @@ vs 4,760 = +840 SQLs/mes
   </div>
 
   <!-- Animated growth chart -->
-  <div style="flex-shrink:0;margin-bottom:10px">
-    <canvas id="gc" style="width:100%;display:block;border-radius:4px;height:148px"></canvas>
+  <div style="flex-shrink:0;margin-bottom:8px">
+    <canvas id="gc" style="width:100%;display:block;border-radius:4px;height:200px"></canvas>
   </div>
 
   <!-- 2-column layout below chart -->
@@ -1931,11 +1931,8 @@ vs 4,760 = +840 SQLs/mes
         </div>
       </div>
       <!-- Conclusion -->
-      <div style="padding:11px 15px;border-radius:10px;background:rgba(6,236,208,.05);border:1px solid var(--ba);flex:1;display:flex;align-items:center">
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--vib);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">La conclusión</div>
-          <div style="font-size:13px;color:var(--txt);line-height:1.6">El camino a $101M no pasa por contratar más reps — pasa por <strong style="color:var(--vib)">recuperar el revenue que ya existe</strong> en el funnel, sistematizar lo que funciona y dejar que la inteligencia amplíe lo que el equipo no puede hacer a escala. Año 1 es eficiencia. Año 2 es calidad. Año 3 es escala.</div>
-        </div>
+      <div style="padding:8px 4px 0">
+        <div style="font-size:11.5px;color:var(--mt);line-height:1.6">El camino a $101M no pasa por contratar más reps — pasa por <strong style="color:var(--vib)">recuperar el revenue que ya existe</strong>, sistematizar lo que funciona y dejar que la inteligencia amplíe lo que el equipo no puede hacer a escala.</div>
       </div>
     </div>
 
@@ -2601,7 +2598,7 @@ if (daySlider) { daySlider.addEventListener('input', updateDayCalc); updateDayCa
     W=c.offsetWidth||c.parentElement.offsetWidth||0;
     if(!W) return false;
     ready=true;
-    H=148; PL=14; PR=14; PT=42; PB=26;
+    H=200; PL=14; PR=14; PT=52; PB=28;
     CW=W-PL-PR; CH=H-PT-PB;
     c.style.height=H+'px';
     var dpr=window.devicePixelRatio||1;
