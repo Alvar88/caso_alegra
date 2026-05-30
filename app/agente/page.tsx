@@ -155,17 +155,7 @@ export default function AgentePage() {
     const icp = parsed.icp_score as 'HOT'|'WARM'|'COLD'
     const segment = parsed.segment
 
-    // 1. Update contact icp_score
-    await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${selectedContact.id}`, {
-      method: 'PATCH',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ icp_score: icp }),
-    }).catch(() => {})
-
-    // 2. Create deal
-    const co = selectedContact.company_id ? crmCompanies[selectedContact.company_id] : null
-    const dealTitle = co ? `${co.name} — ${segment === 'CONTADOR' ? 'Plan Despacho' : 'Plan PyME'}` : `${selectedContact.first_name} ${selectedContact.last_name} — Nuevo lead`
-    const aiNote = JSON.stringify([{
+    const aiEntry = {
       type: 'ai_analysis',
       icp_score: icp,
       segment: parsed.segment,
@@ -174,7 +164,21 @@ export default function AgentePage() {
       first_message: parsed.first_message ?? '',
       routing_reason: parsed.routing_reason ?? '',
       created_at: new Date().toISOString(),
-    }])
+    }
+
+    // 1. Update contact: icp_score + save AI analysis in notes
+    const existingNotes = (() => { try { const p = JSON.parse(selectedContact.notes ?? '[]'); return Array.isArray(p) ? p : [] } catch { return [] } })()
+    const updatedContactNotes = JSON.stringify([aiEntry, ...existingNotes])
+    await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${selectedContact.id}`, {
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ icp_score: icp, notes: updatedContactNotes }),
+    }).catch(() => {})
+
+    // 2. Create deal
+    const co = selectedContact.company_id ? crmCompanies[selectedContact.company_id] : null
+    const dealTitle = co ? `${co.name} — ${segment === 'CONTADOR' ? 'Plan Despacho' : 'Plan PyME'}` : `${selectedContact.first_name} ${selectedContact.last_name} — Nuevo lead`
+    const aiNote = JSON.stringify([aiEntry])
     const dealBody = {
       title: dealTitle,
       contact_id: selectedContact.id,
