@@ -3,12 +3,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const nav = [
-  { href: '/', label: 'Dashboard', icon: '⬛' },
-  { href: '/pipeline', label: 'Pipeline', icon: '◈' },
-  { href: '/contactos', label: 'Contactos', icon: '◉' },
-  { href: '/empresas', label: 'Empresas', icon: '▣' },
-  { href: '/agente', label: 'Lead Agent IA', icon: '◆', highlight: true },
-  { href: '/arquitectura', label: 'Arquitectura', icon: '⬡' },
+  { href: '/',             label: 'Dashboard',    icon: '▦' },
+  { href: '/pipeline',     label: 'Pipeline',      icon: '◈' },
+  { href: '/contactos',    label: 'Contactos',     icon: '◉' },
+  { href: '/empresas',     label: 'Empresas',      icon: '▣' },
+  { href: '/agente',       label: 'Lead Agent IA', icon: '◆', highlight: true },
+  { href: '/arquitectura', label: 'Arquitectura',  icon: '⬡' },
 ]
 
 export default function Sidebar() {
@@ -16,69 +16,56 @@ export default function Sidebar() {
 
   return (
     <aside style={{
-      width: 220,
+      width: 228,
       minHeight: '100vh',
-      background: 'var(--surface)',
-      borderRight: '1px solid var(--border)',
+      background: '#FFFFFF',
+      borderRight: '1px solid #E5E7EB',
       display: 'flex',
       flexDirection: 'column',
       flexShrink: 0,
     }}>
       {/* Logo */}
-      <div style={{
-        padding: '24px 20px 20px',
-        borderBottom: '1px solid var(--border)',
-      }}>
+      <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid #E5E7EB' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 32, height: 32,
-            background: 'var(--accent)',
-            borderRadius: 8,
+            width: 34, height: 34, background: '#00C073', borderRadius: 10,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: '#fff',
+            fontSize: 16, fontWeight: 800, color: '#fff',
+            boxShadow: '0 2px 8px rgba(0,192,115,0.3)',
           }}>A</div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)' }}>Alegra CRM</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Demo IA</div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: '#1A1A2E', letterSpacing: -0.3 }}>Alegra CRM</div>
+            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>Demo IA · Live</div>
           </div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '12px 10px' }}>
+      <nav style={{ flex: 1, padding: '14px 10px' }}>
+        <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, padding: '0 10px', marginBottom: 8 }}>
+          Menú
+        </div>
         {nav.map(item => {
           const active = path === item.href
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '9px 12px',
-                borderRadius: 8,
-                marginBottom: 2,
-                textDecoration: 'none',
-                fontSize: 13.5,
-                fontWeight: active ? 600 : 400,
-                color: active ? '#fff' : item.highlight ? 'var(--accent)' : 'var(--muted)',
-                background: active ? 'var(--accent)' : item.highlight && !active ? 'var(--accent-glow)' : 'transparent',
-                transition: 'all 0.15s',
-                border: item.highlight && !active ? '1px solid rgba(124,92,252,0.3)' : '1px solid transparent',
-              }}
-            >
+            <Link key={item.href} href={item.href} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '9px 12px', borderRadius: 8, marginBottom: 2,
+              textDecoration: 'none', fontSize: 13.5,
+              fontWeight: active ? 700 : 500,
+              color: active ? '#FFFFFF' : item.highlight ? '#5C2D91' : '#6B7280',
+              background: active ? '#00C073' : item.highlight && !active ? '#F0EDF8' : 'transparent',
+              border: item.highlight && !active ? '1px solid #E0D4F5' : '1px solid transparent',
+              transition: 'all 0.15s',
+              boxShadow: active ? '0 2px 8px rgba(0,192,115,0.25)' : 'none',
+            }}>
               <span style={{ fontSize: 12 }}>{item.icon}</span>
               {item.label}
               {item.highlight && !active && (
                 <span style={{
-                  marginLeft: 'auto',
-                  fontSize: 10,
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  borderRadius: 4,
-                  padding: '1px 6px',
-                  fontWeight: 700,
+                  marginLeft: 'auto', fontSize: 10,
+                  background: '#00C073', color: '#fff',
+                  borderRadius: 20, padding: '1px 7px', fontWeight: 700,
                 }}>LIVE</span>
               )}
             </Link>
@@ -87,14 +74,13 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div style={{
-        padding: '16px 20px',
-        borderTop: '1px solid var(--border)',
-        fontSize: 11,
-        color: 'var(--muted)',
-      }}>
-        <div>Powered by DeepSeek</div>
-        <div style={{ marginTop: 2, color: 'var(--accent)', opacity: 0.8 }}>+ n8n · HubSpot · WhatsApp</div>
+      <div style={{ padding: '14px 20px', borderTop: '1px solid #E5E7EB' }}>
+        <div style={{ background: '#E8F8F0', borderRadius: 8, padding: '10px 12px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#00A363', marginBottom: 3 }}>◆ DeepSeek API</div>
+          <div style={{ fontSize: 10, color: '#6B7280', lineHeight: 1.4 }}>
+            Conectado · n8n · Supabase<br />WhatsApp Business API
+          </div>
+        </div>
       </div>
     </aside>
   )

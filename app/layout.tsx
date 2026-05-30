@@ -10,7 +10,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body style={{ margin: 0, display: 'flex', minHeight: '100vh', background: 'var(--background)' }}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      </head>
+      <body style={{ margin: 0, display: 'flex', minHeight: '100vh', background: 'var(--bg-page)' }}>
         <Sidebar />
         <main style={{ flex: 1, overflow: 'auto', minHeight: '100vh' }}>
           {children}
