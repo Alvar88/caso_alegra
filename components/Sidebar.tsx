@@ -74,7 +74,19 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: '14px 20px', borderTop: '1px solid #E5E7EB' }}>
+      <div style={{ padding: '14px 20px', borderTop: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Link href="/landing" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '9px 12px', borderRadius: 8,
+          background: 'linear-gradient(135deg, #00C073, #00A363)',
+          textDecoration: 'none', color: '#fff',
+          fontSize: 12, fontWeight: 700,
+          boxShadow: '0 2px 8px rgba(0,192,115,0.35)',
+        }}>
+          <span style={{ fontSize: 13 }}>🌐</span>
+          Ver Landing Page
+          <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.85 }}>↗</span>
+        </Link>
         <div style={{ background: '#E8F8F0', borderRadius: 8, padding: '10px 12px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#00A363', marginBottom: 3 }}>◆ DeepSeek API</div>
           <div style={{ fontSize: 10, color: '#6B7280', lineHeight: 1.4 }}>
