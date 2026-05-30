@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
 import CreateDealModal from '@/components/modals/CreateDealModal'
@@ -54,15 +54,27 @@ export default function ContactoDetalle() {
   const [showCreateDeal, setShowCreateDeal] = useState(false)
   const [activeTab, setActiveTab] = useState<'notas'|'ai'>('notas')
 
+  // Embedded agent state
+  const [reps, setReps] = useState<any[]>([])
+  const [aiPhase, setAiPhase] = useState<'idle'|'connecting'|'streaming'|'done'>('idle')
+  const [aiParsed, setAiParsed] = useState<Record<string,string>|null>(null)
+  const [aiRawStream, setAiRawStream] = useState('')
+  const [aiAssignedRep, setAiAssignedRep] = useState<any>(null)
+  const [aiApplying, setAiApplying] = useState(false)
+  const [aiApplied, setAiApplied] = useState<{dealId?:string}|null>(null)
+  const aiRawRef = useRef('')
+
   useEffect(() => {
     Promise.all([
       dbFetch('contacts', `select=*&id=eq.${id}`),
       dbFetch('deals', `select=*&contact_id=eq.${id}&order=updated_at.desc`),
-    ]).then(async ([contacts, dealsData]) => {
+      dbFetch('reps', 'select=id,name,avatar,specialization,capacity_score,active_deals'),
+    ]).then(async ([contacts, dealsData, repsData]) => {
       const c = contacts[0] ?? null
       setContact(c)
       setNoteHistory(parseNotes(c?.notes ?? null))
       setDeals(dealsData)
+      setReps(repsData)
       if (c?.company_id) {
         const cos = await dbFetch('companies', `select=*&id=eq.${c.company_id}`)
         setCompany(cos[0] ?? null)
@@ -70,6 +82,141 @@ export default function ContactoDetalle() {
       setLoading(false)
     })
   }, [id])
+
+  function tryParseAI(text: string): Record<string,string>|null {
+    const fields: Record<string,string> = {}
+    for (const key of ['segment','icp_score','confidence','pain_hypothesis','first_message','routing_reason']) {
+      const match = text.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"?`))
+      if (match) fields[key] = match[1]
+    }
+    return Object.keys(fields).length > 0 ? fields : null
+  }
+
+  function selectRep(segment: string, icpScore: string) {
+    if (!reps.length) return null
+    const iw = icpScore === 'HOT' ? 1.5 : icpScore === 'WARM' ? 1.0 : 0.5
+    const scored = reps.map(r => {
+      const sm = r.specialization === segment || r.specialization === 'mixed' ? 1.2 : 0.8
+      const ci = (100 - (r.capacity_score ?? 50)) / 100
+      return { rep: r, score: ci * sm * iw }
+    })
+    scored.sort((a,b) => b.score - a.score)
+    return scored[0].rep
+  }
+
+  async function runAiAnalysis() {
+    setAiPhase('connecting')
+    setAiParsed(null); setAiRawStream(''); setAiAssignedRep(null); setAiApplied(null)
+    aiRawRef.current = ''
+
+    const srcLabel: Record<string,string> = { webinar:'Webinar', formulario_web:'Formulario web', referido:'Referido', demo_solicitada:'Demo solicitada', descarga_guia:'Descarga guía', email_campaign:'Email campaign', google_ads:'Google Ads' }
+    const rolLabel: Record<string,string> = { dueno:'Dueño/a', socio_director:'Socio director', gerente_admin:'Gerente admin', contador_externo:'Contador externo', cfo:'CFO', administradora:'Administradora', fundador:'Fundador/a' }
+    const countryLabel: Record<string,string> = { MX:'México', CO:'Colombia', PE:'Perú', AR:'Argentina' }
+
+    const lead = {
+      nombre: `${contact.first_name} ${contact.last_name}`,
+      cargo: rolLabel[contact.role] ?? contact.role,
+      empresa: company?.name ?? '',
+      pais: countryLabel[contact.country] ?? contact.country,
+      sector: company?.industry ?? (contact.segment === 'CONTADOR' ? 'Servicios contables' : 'Empresa'),
+      tamano: company?.clients != null ? `${company.clients} clientes activos` : company?.employees != null ? `${company.employees} empleados` : 'Sin datos',
+      fuente: srcLabel[contact.source] ?? contact.source,
+      accion: noteHistory.filter(n => !n.type).map(n => n.text).join(' | ') || contact.notes || 'Sin acciones registradas',
+      software: company?.current_software ?? '',
+      notas: `Segmento: ${contact.segment}. País: ${contact.country}.`,
+    }
+
+    try {
+      const res = await fetch('/api/analizar-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setAiRawStream(`Error: ${err.error ?? 'No se pudo conectar con DeepSeek'}`)
+        setAiPhase('done'); return
+      }
+      setAiPhase('streaming')
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        aiRawRef.current += decoder.decode(value, { stream: true })
+        setAiRawStream(aiRawRef.current)
+        const partial = tryParseAI(aiRawRef.current)
+        if (partial) {
+          setAiParsed(partial)
+          if (partial.segment && partial.icp_score && !aiAssignedRep)
+            setAiAssignedRep(selectRep(partial.segment, partial.icp_score))
+        }
+      }
+      setAiPhase('done')
+      const final = tryParseAI(aiRawRef.current)
+      if (final) {
+        setAiParsed(final)
+        setAiAssignedRep(selectRep(final.segment, final.icp_score))
+      }
+    } catch(e) {
+      setAiRawStream(`Error: ${e}`); setAiPhase('done')
+    }
+  }
+
+  async function applyAiAnalysis() {
+    if (!aiParsed || !aiAssignedRep) return
+    setAiApplying(true)
+
+    const validIcp: Record<string,string> = { HOT:'HOT', WARM:'WARM', COLD:'COLD' }
+    const icp = (validIcp[aiParsed.icp_score?.trim().toUpperCase()] ?? 'COLD') as 'HOT'|'WARM'|'COLD'
+    const segment = aiParsed.segment?.trim().toUpperCase() === 'CONTADOR' ? 'CONTADOR' : 'PYME'
+
+    const aiEntry: NoteEntry = {
+      type: 'ai_analysis',
+      icp_score: icp, segment,
+      confidence: aiParsed.confidence?.trim().toUpperCase() ?? 'MEDIUM',
+      pain_hypothesis: aiParsed.pain_hypothesis ?? '',
+      first_message: aiParsed.first_message ?? '',
+      routing_reason: aiParsed.routing_reason ?? '',
+      created_at: new Date().toISOString(),
+    }
+
+    // Update contact notes
+    const currentNotes = noteHistory.filter(n => n.type !== 'ai_analysis')
+    const updatedNotes = [aiEntry, ...currentNotes]
+    await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ notes: JSON.stringify(updatedNotes) }),
+    }).catch(() => {})
+    await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ icp_score: icp }),
+    }).catch(() => {})
+    setNoteHistory(updatedNotes)
+
+    // Create deal
+    const dealTitle = company ? `${company.name} — ${segment === 'CONTADOR' ? 'Plan Despacho' : 'Plan PyME'}` : `${contact.first_name} ${contact.last_name} — Nuevo lead`
+    const dealRes = await fetch(`${SUPABASE_URL}/rest/v1/deals`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify({
+        title: dealTitle, contact_id: id, rep_id: aiAssignedRep.id,
+        pipeline: segment === 'CONTADOR' ? 'contadores' : 'pymes',
+        stage: 'discovery', icp_score: icp, mrr: 0,
+        confidence: aiEntry.confidence, pain_hypothesis: aiEntry.pain_hypothesis,
+        notes: JSON.stringify([aiEntry]),
+      }),
+    }).catch(() => null)
+
+    let dealId: string | undefined
+    if (dealRes?.ok) { const d = await dealRes.json(); dealId = d?.[0]?.id }
+    if (dealId) setDeals(prev => [{ id: dealId, title: dealTitle, stage: 'discovery', icp_score: icp, mrr: 0 }, ...prev])
+
+    setAiApplied({ dealId })
+    setAiApplying(false)
+  }
 
   async function addNote() {
     if (!newNote.trim()) return
@@ -226,47 +373,131 @@ export default function ContactoDetalle() {
             </>}
 
             {/* Tab: Análisis IA */}
-            {activeTab === 'ai' && (() => {
-              const aiEntries = noteHistory.filter(n => n.type === 'ai_analysis')
-              if (aiEntries.length === 0) return (
-                <div style={{ padding:'32px 20px', textAlign:'center' }}>
-                  <div style={{ fontSize:24, marginBottom:10 }}>◆</div>
-                  <div style={{ fontSize:13, color:'#9CA3AF' }}>Sin análisis de IA aún.<br />Usa el Lead Intelligence Agent para clasificar este contacto.</div>
-                </div>
-              )
-              return (
-                <div style={{ padding:'20px', display:'flex', flexDirection:'column', gap:16 }}>
-                  {aiEntries.map((entry, i) => (
-                    <div key={i}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 12px', background:'rgba(92,45,145,0.08)', borderRadius:20, border:'1px solid rgba(92,45,145,0.2)' }}>
-                          <span style={{ width:7, height:7, borderRadius:'50%', background:'#5C2D91', display:'inline-block' }} />
-                          <span style={{ fontSize:11, fontWeight:700, color:'#5C2D91', textTransform:'uppercase', letterSpacing:0.8 }}>DeepSeek Analysis</span>
-                        </div>
-                        <span style={{ fontSize:11, color:'#9CA3AF' }}>{new Date(entry.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'short' })} · {new Date(entry.created_at).toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' })}</span>
+            {activeTab === 'ai' && (
+              <div style={{ padding:'20px', display:'flex', flexDirection:'column', gap:16 }}>
+
+                {/* Trigger button */}
+                {aiPhase === 'idle' && (
+                  <button onClick={runAiAnalysis} style={{ width:'100%', padding:'13px', background:'linear-gradient(135deg,#5C2D91,#7B3FBE)', color:'#fff', border:'none', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:10, boxShadow:'0 4px 16px rgba(92,45,145,0.3)' }}>
+                    <span style={{ fontSize:16 }}>◆</span>
+                    Analizar con Lead Intelligence Agent
+                    <span style={{ fontSize:11, opacity:0.75, fontWeight:400 }}>· DeepSeek</span>
+                  </button>
+                )}
+
+                {aiPhase === 'connecting' && (
+                  <div style={{ padding:'14px 16px', background:'rgba(92,45,145,0.06)', border:'1px solid rgba(92,45,145,0.2)', borderRadius:10, display:'flex', alignItems:'center', gap:10 }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:'#5C2D91', animation:'pulse-glow 1s infinite' }} />
+                    <span style={{ fontSize:13, color:'#5C2D91' }}>Conectando con DeepSeek…</span>
+                  </div>
+                )}
+
+                {(aiPhase === 'streaming' || aiPhase === 'done') && aiParsed && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    {/* Header */}
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 12px', background:'rgba(92,45,145,0.08)', borderRadius:20, border:'1px solid rgba(92,45,145,0.2)' }}>
+                        <span style={{ width:7, height:7, borderRadius:'50%', background:'#5C2D91', display:'inline-block', animation: aiPhase==='streaming' ? 'pulse-glow 1s infinite' : 'none' }} />
+                        <span style={{ fontSize:11, fontWeight:700, color:'#5C2D91', textTransform:'uppercase', letterSpacing:0.8 }}>
+                          {aiPhase === 'streaming' ? '⟳ Clasificando…' : '✓ DeepSeek Analysis'}
+                        </span>
                       </div>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14 }}>
-                        {entry.icp_score && <div style={{ padding:'12px', background:ib[entry.icp_score]??'#F5F4FA', borderRadius:10, textAlign:'center', border:`1px solid ${(ic[entry.icp_score]??'#9CA3AF')}33` }}><div style={{ fontSize:18, fontWeight:800, color:ic[entry.icp_score] }}>{entry.icp_score}</div><div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>ICP Score</div></div>}
-                        {entry.segment && <div style={{ padding:'12px', background:'#F5F4FA', borderRadius:10, textAlign:'center' }}><div style={{ fontSize:13, fontWeight:700, color: entry.segment==='CONTADOR'?'#5C2D91':'#00A363' }}>{entry.segment}</div><div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>Segmento</div></div>}
-                        {entry.confidence && <div style={{ padding:'12px', background:'#F5F4FA', borderRadius:10, textAlign:'center' }}><div style={{ fontSize:13, fontWeight:700, color:'#6B7280' }}>{entry.confidence}</div><div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>Confianza</div></div>}
-                      </div>
-                      {entry.pain_hypothesis && (
-                        <div style={{ padding:'12px 14px', background:'#F5F4FA', borderRadius:10, borderLeft:'3px solid #5C2D91', marginBottom:14 }}>
-                          <div style={{ fontSize:10, color:'#5C2D91', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:5 }}>Pain hypothesis</div>
-                          <div style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>{entry.pain_hypothesis}</div>
-                        </div>
-                      )}
-                      {entry.first_message && (
-                        <div style={{ padding:'14px', background:'#1a2b1a', borderRadius:10 }}>
-                          <div style={{ fontSize:10, color:'#52c41a', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:8 }}>📱 Primer mensaje WhatsApp</div>
-                          <div style={{ fontSize:13, color:'#e8e8ed', lineHeight:1.6, background:'#0f1f0f', borderRadius:8, padding:'10px 12px' }}>{entry.first_message}</div>
-                        </div>
+                      {aiPhase === 'done' && (
+                        <button onClick={() => { setAiPhase('idle'); setAiParsed(null); setAiApplied(null) }} style={{ fontSize:11, color:'#9CA3AF', background:'none', border:'none', cursor:'pointer' }}>
+                          Volver a analizar
+                        </button>
                       )}
                     </div>
-                  ))}
-                </div>
-              )
-            })()}
+
+                    {/* Scores */}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                      {aiParsed.icp_score && <div style={{ padding:'12px', background:ib[aiParsed.icp_score]??'#F5F4FA', borderRadius:10, textAlign:'center', border:`1px solid ${(ic[aiParsed.icp_score]??'#9CA3AF')}33` }}><div style={{ fontSize:20, fontWeight:800, color:ic[aiParsed.icp_score] }}>{aiParsed.icp_score}</div><div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>ICP Score</div></div>}
+                      {aiParsed.segment && <div style={{ padding:'12px', background:'#F5F4FA', borderRadius:10, textAlign:'center' }}><div style={{ fontSize:14, fontWeight:700, color: aiParsed.segment==='CONTADOR'?'#5C2D91':'#00A363' }}>{aiParsed.segment}</div><div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>Segmento</div></div>}
+                      {aiParsed.confidence && <div style={{ padding:'12px', background:'#F5F4FA', borderRadius:10, textAlign:'center' }}><div style={{ fontSize:14, fontWeight:700, color:'#6B7280' }}>{aiParsed.confidence}</div><div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>Confianza</div></div>}
+                    </div>
+
+                    {/* Pain hypothesis */}
+                    {aiParsed.pain_hypothesis && (
+                      <div style={{ padding:'12px 14px', background:'#F5F4FA', borderRadius:10, borderLeft:'3px solid #5C2D91' }}>
+                        <div style={{ fontSize:10, color:'#5C2D91', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:5 }}>Pain hypothesis</div>
+                        <div style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>{aiParsed.pain_hypothesis}</div>
+                      </div>
+                    )}
+
+                    {/* Rep asignado */}
+                    {aiAssignedRep && (
+                      <div style={{ padding:'12px 14px', background:'#F5F4FA', borderRadius:10, display:'flex', alignItems:'center', gap:12 }}>
+                        <div style={{ width:34, height:34, borderRadius:'50%', background:'#00C073', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:'#fff', flexShrink:0 }}>{aiAssignedRep.avatar}</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:11, color:'#00A363', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:1 }}>Rep asignado</div>
+                          <div style={{ fontSize:13, fontWeight:600, color:'#1A1A2E' }}>{aiAssignedRep.name}</div>
+                          <div style={{ fontSize:11, color:'#9CA3AF' }}>Capacity {aiAssignedRep.capacity_score}% · {aiAssignedRep.active_deals} deals</div>
+                        </div>
+                        <div style={{ fontSize:10, padding:'3px 9px', borderRadius:6, background:'#E8F8F0', color:'#00A363', fontWeight:700 }}>ASIGNADO</div>
+                      </div>
+                    )}
+
+                    {/* WhatsApp */}
+                    {aiParsed.first_message && (
+                      <div style={{ padding:'14px', background:'#1a2b1a', borderRadius:10 }}>
+                        <div style={{ fontSize:10, color:'#52c41a', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:8 }}>📱 Primer mensaje WhatsApp</div>
+                        <div style={{ fontSize:13, color:'#e8e8ed', lineHeight:1.6, background:'#0f1f0f', borderRadius:8, padding:'10px 12px' }}>
+                          {aiParsed.first_message}
+                          {aiPhase === 'streaming' && <span className="cursor-blink" />}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Apply button */}
+                    {aiPhase === 'done' && (
+                      aiApplied ? (
+                        <div style={{ padding:'14px 16px', background:'#E8F8F0', border:'1px solid #A7F3D0', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:700, color:'#00A363' }}>✓ Aplicado al CRM</div>
+                            <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>ICP actualizado · Deal abierto en Discovery</div>
+                          </div>
+                          {aiApplied.dealId && (
+                            <button onClick={() => router.push(`/pipeline/${aiApplied.dealId}`)} style={{ padding:'8px 14px', background:'#00A363', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', marginLeft:12 }}>
+                              Ver deal →
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button onClick={applyAiAnalysis} disabled={aiApplying} style={{ width:'100%', padding:'13px', background: aiApplying ? '#E5E7EB' : '#1A1A2E', color: aiApplying ? '#9CA3AF' : '#fff', border:'none', borderRadius:10, fontSize:13, fontWeight:700, cursor: aiApplying ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
+                          {aiApplying ? '◌ Aplicando…' : (<><span>⚡ Aplicar al CRM</span><span style={{ fontSize:11, fontWeight:400, opacity:0.6 }}>Actualiza ICP · Crea deal · Asigna rep</span></>)}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+
+                {/* Historial de análisis previos */}
+                {noteHistory.filter(n => n.type === 'ai_analysis').length > 0 && aiPhase === 'idle' && (
+                  <div style={{ borderTop:'1px solid #F5F4FA', paddingTop:16 }}>
+                    <div style={{ fontSize:11, color:'#9CA3AF', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:12 }}>Análisis anteriores</div>
+                    {noteHistory.filter(n => n.type === 'ai_analysis').map((entry, i) => (
+                      <div key={i} style={{ padding:'14px', background:'#F9FAFB', borderRadius:10, border:'1px solid #E5E7EB', marginBottom:10 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:10 }}>
+                          <div style={{ display:'flex', gap:6 }}>
+                            {entry.icp_score && <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, color:ic[entry.icp_score]??'#9CA3AF', background:ib[entry.icp_score]??'#F5F4FA' }}>{entry.icp_score}</span>}
+                            {entry.segment && <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background: entry.segment==='CONTADOR'?'#F0EDF8':'#E8F8F0', color: entry.segment==='CONTADOR'?'#5C2D91':'#00A363' }}>{entry.segment}</span>}
+                            {entry.confidence && <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, background:'#F5F4FA', color:'#6B7280' }}>{entry.confidence}</span>}
+                          </div>
+                          <span style={{ fontSize:11, color:'#9CA3AF' }}>{new Date(entry.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'short' })}</span>
+                        </div>
+                        {entry.pain_hypothesis && <div style={{ fontSize:12, color:'#374151', lineHeight:1.5, marginBottom: entry.first_message ? 10 : 0 }}>{entry.pain_hypothesis}</div>}
+                        {entry.first_message && (
+                          <div style={{ padding:'10px', background:'#1a2b1a', borderRadius:8 }}>
+                            <div style={{ fontSize:10, color:'#52c41a', fontWeight:700, marginBottom:4 }}>📱 WhatsApp</div>
+                            <div style={{ fontSize:12, color:'#e8e8ed', lineHeight:1.5 }}>{entry.first_message}</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
