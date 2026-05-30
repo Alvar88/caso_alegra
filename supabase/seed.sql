@@ -224,7 +224,7 @@ INSERT INTO contacts (id, first_name, last_name, email, phone, role, company_id,
 ('33333333-3333-3333-3333-330000000112','Diana','Huanca','dhuanca.pe@gmail.com','+51 993 221 8812','dueno',NULL,'PE','email_campaign','PYME','COLD','5 empleados. Sin urgencia.'),
 
 -- Argentina con empresa (18)
-('33333333-3333-3333-3333-330000000113','Valentina','Cruz AR','vcruz@pixeldigital.ar','+54 9 11 4890 3312','fundador','22222222-2222-2222-2222-220000000053','AR','webinar','PYME','WARM','Agencia 14 empleados. Facturación multi-país.'),
+('33333333-3333-3333-3333-330000000113','Valentina','Cruz AR','vcruz@pixeldigital-ar.ar','+54 9 11 4890 3312','fundador','22222222-2222-2222-2222-220000000053','AR','webinar','PYME','WARM','Agencia 14 empleados. Facturación multi-país.'),
 ('33333333-3333-3333-3333-330000000114','Laura','Ibáñez AR','libanez@tiendaonline.ar','+54 9 261 4445 8871','dueno','22222222-2222-2222-2222-220000000054','AR','google_ads','PYME','COLD','4 empleados. Tienda online. Ya cerrada.'),
 ('33333333-3333-3333-3333-330000000115','Manuel','Consultora AR','mconsultora@austral.ar','+54 9 11 3312 4490','gerente_admin','22222222-2222-2222-2222-220000000055','AR','referido','PYME','WARM','8 empleados. Consultora. Referido.'),
 ('33333333-3333-3333-3333-330000000116','Florencia','Distribuidora AR','fdistri@sur.ar','+54 9 11 7741 2230','gerente_admin','22222222-2222-2222-2222-220000000056','AR','email_campaign','PYME','HOT','27 empleados. Quiere migrar urgente de Excel.'),
