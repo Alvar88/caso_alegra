@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0d0d0f;
+  --foreground: #e8e8ed;
+  --surface: #161618;
+  --surface-2: #1e1e21;
+  --border: #2a2a2e;
+  --muted: #6b6b78;
+  --accent: #7c5cfc;
+  --accent-glow: rgba(124, 92, 252, 0.15);
+  --hot: #ff4d4f;
+  --hot-bg: rgba(255, 77, 79, 0.1);
+  --warm: #faad14;
+  --warm-bg: rgba(250, 173, 20, 0.1);
+  --cold: #4b4b55;
+  --cold-bg: rgba(75, 75, 85, 0.2);
+  --won: #52c41a;
+  --won-bg: rgba(82, 196, 26, 0.1);
+  --lost: #ff4d4f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { box-shadow: 0 0 20px 4px var(--accent-glow); }
+}
+
+@keyframes typing-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease forwards;
+}
+
+.glow-accent {
+  animation: pulse-glow 2s infinite;
+}
+
+.cursor-blink::after {
+  content: '|';
+  animation: typing-cursor 0.8s infinite;
+  margin-left: 1px;
+  color: var(--accent);
+}
