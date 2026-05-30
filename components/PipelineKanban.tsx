@@ -134,7 +134,7 @@ export default function PipelineKanban() {
                 border:`1px solid ${isOver ? '#00C073' : '#E5E7EB'}`,
                 borderRadius:'0 0 10px 10px',
                 minHeight:80,
-                maxHeight:560,
+                maxHeight:650,
                 overflowY:'auto',
                 padding:10,
                 display:'flex',
