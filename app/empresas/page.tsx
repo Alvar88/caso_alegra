@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
 
 const flag: Record<string,string> = { MX:'🇲🇽', CO:'🇨🇴', PE:'🇵🇪', AR:'🇦🇷' }
 
 export default function EmpresasPage() {
+  const router = useRouter()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -114,7 +116,10 @@ export default function EmpresasPage() {
           ) : filtered.map((co, i) => {
             const isCont = co.segment === 'CONTADOR'
             return (
-              <div key={co.id} style={{ display:'grid', gridTemplateColumns:'2.5fr 1fr 1fr 1fr 1fr', padding:'14px 22px', borderBottom: i < filtered.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center' }}>
+              <div key={co.id} onClick={() => router.push(`/empresas/${co.id}`)} style={{ display:'grid', gridTemplateColumns:'2.5fr 1fr 1fr 1fr 1fr', padding:'14px 22px', borderBottom: i < filtered.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center', cursor:'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
                 {/* Empresa */}
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <div style={{ width:36, height:36, borderRadius:9, flexShrink:0, background: isCont ? '#F0EDF8' : '#E8F8F0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, borderLeft:`3px solid ${isCont ? '#5C2D91' : '#00C073'}` }}>
