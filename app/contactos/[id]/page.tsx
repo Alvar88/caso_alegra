@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
+import CreateDealModal from '@/components/modals/CreateDealModal'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpptlznlexkxehxnyjeh.supabase.co'
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwcHRsem5sZXpreGVoeG55amVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTAxNjIsImV4cCI6MjA5NTcyNjE2Mn0.44OoqEBDLMaRWa3tv7vAgh7hC4XsrKs6xbDMgmXh7Is'
@@ -50,6 +51,7 @@ export default function ContactoDetalle() {
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showCreateDeal, setShowCreateDeal] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -105,9 +107,16 @@ export default function ContactoDetalle() {
 
   return (
     <div style={{ padding:'28px 32px', height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-      <button onClick={() => router.push('/contactos')} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'#6B7280', background:'none', border:'none', cursor:'pointer', padding:'0 0 18px', fontFamily:'inherit' }}>
-        ← Volver a Contactos
-      </button>
+      {showCreateDeal && <CreateDealModal preselectedContactId={id} onClose={() => setShowCreateDeal(false)} onCreated={() => { setShowCreateDeal(false); window.location.reload() }} />}
+
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:18 }}>
+        <button onClick={() => router.push('/contactos')} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'#6B7280', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>
+          ← Volver a Contactos
+        </button>
+        <button onClick={() => setShowCreateDeal(true)} style={{ padding:'8px 16px', background:'#5C2D91', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 2px 8px rgba(92,45,145,0.25)' }}>
+          + Nuevo deal
+        </button>
+      </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'260px 1fr 220px', gap:20, flex:1, minHeight:0 }}>
 

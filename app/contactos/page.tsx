@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
+import CreateContactModal from '@/components/modals/CreateContactModal'
 
 const flag: Record<string,string> = { MX:'🇲🇽', CO:'🇨🇴', PE:'🇵🇪', AR:'🇦🇷' }
 const src: Record<string,string> = { webinar:'Webinar', formulario_web:'Formulario', referido:'Referido', demo_solicitada:'Demo solicitada', descarga_guia:'Descarga guía', email_campaign:'Email', google_ads:'Google Ads' }
@@ -16,6 +17,7 @@ export default function ContactosPage() {
   const [search, setSearch] = useState('')
   const [segmento, setSegmento] = useState('')
   const [icp, setIcp] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -55,12 +57,19 @@ export default function ContactosPage() {
 
   return (
     <div style={{ padding:'32px 36px', display:'flex', flexDirection:'column', height:'100vh' }}>
+      {showCreate && <CreateContactModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); window.location.reload() }} />}
+
       {/* Header */}
-      <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 4px' }}>Contactos</h1>
-        <p style={{ color:'#6B7280', fontSize:13, margin:0 }}>
-          {filtered.length} de {rows.length} contactos · {rows.filter(c=>c.company_id).length} con empresa · {rows.filter(c=>!c.company_id).length} sin empresa
-        </p>
+      <div style={{ marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 4px' }}>Contactos</h1>
+          <p style={{ color:'#6B7280', fontSize:13, margin:0 }}>
+            {filtered.length} de {rows.length} contactos · {rows.filter(c=>c.company_id).length} con empresa · {rows.filter(c=>!c.company_id).length} sin empresa
+          </p>
+        </div>
+        <button onClick={() => setShowCreate(true)} style={{ padding:'9px 18px', background:'#00C073', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', boxShadow:'0 2px 8px rgba(0,192,115,0.3)' }}>
+          + Nuevo contacto
+        </button>
       </div>
 
       {/* Search + Filters */}

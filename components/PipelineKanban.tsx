@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
+import CreateDealModal from '@/components/modals/CreateDealModal'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpptlznlexkxehxnyjeh.supabase.co'
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwcHRsem5sZXpreGVoeG55amVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTAxNjIsImV4cCI6MjA5NTcyNjE2Mn0.44OoqEBDLMaRWa3tv7vAgh7hC4XsrKs6xbDMgmXh7Is'
@@ -22,6 +23,7 @@ export default function PipelineKanban() {
   const [cos, setCos] = useState<Record<string,string>>({})
   const [loading, setLoading] = useState(true)
   const [dragOverStage, setDragOverStage] = useState<string|null>(null)
+  const [showCreate, setShowCreate] = useState(false)
   const draggedId = useRef<string|null>(null)
   const didDrag = useRef(false)
   const router = useRouter()
@@ -97,8 +99,17 @@ export default function PipelineKanban() {
 
   return (
     <div style={{ padding:'32px 36px 32px', height:'100vh', display:'flex', flexDirection:'column' }}>
-      <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 4px' }}>Pipeline de Deals</h1>
-      <p style={{ color:'#6B7280', fontSize:13, margin:'0 0 20px' }}>{filtered.length} deals · Arrastra para mover entre etapas</p>
+      {showCreate && <CreateDealModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); window.location.reload() }} />}
+
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
+        <div>
+          <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 4px' }}>Deals</h1>
+          <p style={{ color:'#6B7280', fontSize:13, margin:0 }}>{filtered.length} deals · Arrastra para mover entre etapas</p>
+        </div>
+        <button onClick={() => setShowCreate(true)} style={{ padding:'9px 18px', background:'#5C2D91', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', boxShadow:'0 2px 8px rgba(92,45,145,0.3)' }}>
+          + Nuevo deal
+        </button>
+      </div>
 
       <div style={{ display:'flex', gap:10, marginBottom:24 }}>
         {(['contadores','pymes'] as const).map(p => (

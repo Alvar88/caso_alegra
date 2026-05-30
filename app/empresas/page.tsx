@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
+import CreateEmpresaModal from '@/components/modals/CreateEmpresaModal'
 
 const flag: Record<string,string> = { MX:'🇲🇽', CO:'🇨🇴', PE:'🇵🇪', AR:'🇦🇷' }
 
@@ -10,6 +11,7 @@ export default function EmpresasPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
   const [segmento, setSegmento] = useState('')
 
   useEffect(() => {
@@ -55,12 +57,19 @@ export default function EmpresasPage() {
 
   return (
     <div style={{ padding:'32px 36px', display:'flex', flexDirection:'column', height:'100vh' }}>
+      {showCreate && <CreateEmpresaModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); window.location.reload() }} />}
+
       {/* Header */}
-      <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 4px' }}>Empresas</h1>
-        <p style={{ color:'#6B7280', fontSize:13, margin:0 }}>
-          {filtered.length} de {rows.length} empresas · {rows.filter(c=>c.segment==='CONTADOR').length} despachos · {rows.filter(c=>c.segment==='PYME').length} PyMEs
-        </p>
+      <div style={{ marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 4px' }}>Empresas</h1>
+          <p style={{ color:'#6B7280', fontSize:13, margin:0 }}>
+            {filtered.length} de {rows.length} empresas · {rows.filter(c=>c.segment==='CONTADOR').length} despachos · {rows.filter(c=>c.segment==='PYME').length} PyMEs
+          </p>
+        </div>
+        <button onClick={() => setShowCreate(true)} style={{ padding:'9px 18px', background:'#00C073', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', boxShadow:'0 2px 8px rgba(0,192,115,0.3)' }}>
+          + Nueva empresa
+        </button>
       </div>
 
       {/* Search + Filters */}

@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
+import CreateContactModal from '@/components/modals/CreateContactModal'
+import CreateDealModal from '@/components/modals/CreateDealModal'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpptlznlexkxehxnyjeh.supabase.co'
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwcHRsem5sZXpreGVoeG55amVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTAxNjIsImV4cCI6MjA5NTcyNjE2Mn0.44OoqEBDLMaRWa3tv7vAgh7hC4XsrKs6xbDMgmXh7Is'
@@ -48,6 +50,8 @@ export default function EmpresaDetalle() {
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showCreateContact, setShowCreateContact] = useState(false)
+  const [showCreateDeal, setShowCreateDeal] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -108,9 +112,22 @@ export default function EmpresaDetalle() {
 
   return (
     <div style={{ padding:'28px 32px', height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-      <button onClick={() => router.push('/empresas')} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'#6B7280', background:'none', border:'none', cursor:'pointer', padding:'0 0 18px', fontFamily:'inherit' }}>
-        ← Volver a Empresas
-      </button>
+      {showCreateContact && <CreateContactModal preselectedCompanyId={id} onClose={() => setShowCreateContact(false)} onCreated={() => { setShowCreateContact(false); window.location.reload() }} />}
+      {showCreateDeal && <CreateDealModal onClose={() => setShowCreateDeal(false)} onCreated={() => { setShowCreateDeal(false); window.location.reload() }} />}
+
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:18 }}>
+        <button onClick={() => router.push('/empresas')} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'#6B7280', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>
+          ← Volver a Empresas
+        </button>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={() => setShowCreateContact(true)} style={{ padding:'8px 16px', background:'#00C073', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 2px 8px rgba(0,192,115,0.25)' }}>
+            + Nuevo contacto
+          </button>
+          <button onClick={() => setShowCreateDeal(true)} style={{ padding:'8px 16px', background:'#5C2D91', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', boxShadow:'0 2px 8px rgba(92,45,145,0.25)' }}>
+            + Nuevo deal
+          </button>
+        </div>
+      </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'260px 1fr 220px', gap:20, flex:1, minHeight:0 }}>
 
@@ -189,7 +206,10 @@ export default function EmpresaDetalle() {
                   <div>Título</div><div>Etapa</div><div>ICP</div><div>MRR</div>
                 </div>
                 {deals.map((d, i) => (
-                  <div key={d.id} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', padding:'12px 20px', borderBottom: i < deals.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center' }}>
+                  <div key={d.id} onClick={() => router.push(`/pipeline/${d.id}`)} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', padding:'12px 20px', borderBottom: i < deals.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center', cursor:'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
                     <div style={{ fontSize:13, fontWeight:600, color:'#1A1A2E' }}>{d.title}</div>
                     <div><span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background: stageColor[d.stage] ? stageColor[d.stage]+'18' : '#F5F4FA', color: stageColor[d.stage] ?? '#6B7280' }}>{stageLabel[d.stage] ?? d.stage}</span></div>
                     <div><span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, color:ic[d.icp_score], background:ib[d.icp_score] }}>{d.icp_score}</span></div>
