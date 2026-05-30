@@ -11,6 +11,7 @@ const ib: Record<string,string> = { HOT:'rgba(239,68,68,0.08)', WARM:'#FFF8E7', 
 export default function ContactosPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -26,6 +27,17 @@ export default function ContactosPage() {
     })
   }, [])
 
+  const filtered = rows.filter(c => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.company?.name?.toLowerCase().includes(q) ||
+      c.segment?.toLowerCase().includes(q)
+    )
+  })
+
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', flexDirection:'column', gap:12 }}>
       <div style={{ width:32, height:32, border:'3px solid #E5E7EB', borderTopColor:'#00C073', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
@@ -35,33 +47,65 @@ export default function ContactosPage() {
   )
 
   return (
-    <div style={{ padding:'32px 36px' }}>
-      <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 6px' }}>Contactos</h1>
-      <p style={{ color:'#6B7280', fontSize:13, marginBottom:24 }}>{rows.length} contactos · {rows.filter(c=>c.company_id).length} con empresa · {rows.filter(c=>!c.company_id).length} sin empresa</p>
-      <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,192,115,0.06)' }}>
-        <div style={{ display:'grid', gridTemplateColumns:'2fr 2fr 1fr 1fr 1fr 1fr', padding:'12px 22px', borderBottom:'1px solid #E5E7EB', background:'#F5F4FA', fontSize:11, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:0.8, fontWeight:700 }}>
+    <div style={{ padding:'32px 36px', display:'flex', flexDirection:'column', height:'100vh' }}>
+      {/* Header */}
+      <div style={{ marginBottom:20 }}>
+        <h1 style={{ fontSize:26, fontWeight:800, color:'#1A1A2E', margin:'0 0 4px' }}>Contactos</h1>
+        <p style={{ color:'#6B7280', fontSize:13, margin:0 }}>
+          {filtered.length} de {rows.length} contactos · {rows.filter(c=>c.company_id).length} con empresa · {rows.filter(c=>!c.company_id).length} sin empresa
+        </p>
+      </div>
+
+      {/* Search */}
+      <div style={{ marginBottom:16, position:'relative', maxWidth:360 }}>
+        <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'#9CA3AF', fontSize:14, pointerEvents:'none' }}>🔍</span>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar por nombre, empresa, email…"
+          style={{
+            width:'100%', padding:'9px 12px 9px 34px',
+            border:'1px solid #E5E7EB', borderRadius:8,
+            fontSize:13, color:'#1A1A2E', background:'#fff',
+            outline:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.04)',
+          }}
+        />
+      </div>
+
+      {/* Table */}
+      <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,192,115,0.06)', flex:1, display:'flex', flexDirection:'column', minHeight:0 }}>
+        {/* Sticky header */}
+        <div style={{ display:'grid', gridTemplateColumns:'2fr 2fr 1fr 1fr 1fr 1fr', padding:'12px 22px', borderBottom:'1px solid #E5E7EB', background:'#F5F4FA', fontSize:11, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:0.8, fontWeight:700, flexShrink:0 }}>
           <div>Contacto</div><div>Empresa</div><div>Segmento</div><div>ICP</div><div>Fuente</div><div>Deals</div>
         </div>
-        {rows.map((c, i) => (
-          <div key={c.id} style={{ display:'grid', gridTemplateColumns:'2fr 2fr 1fr 1fr 1fr 1fr', padding:'13px 22px', borderBottom: i < rows.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ width:34, height:34, borderRadius:'50%', background:ib[c.icp_score], border:`1px solid ${ic[c.icp_score]}33`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:ic[c.icp_score], flexShrink:0 }}>{c.first_name[0]}{c.last_name[0]}</div>
-              <div>
-                <div style={{ fontSize:13, fontWeight:700, color:'#1A1A2E' }}>{c.first_name} {c.last_name}</div>
-                <div style={{ fontSize:11, color:'#9CA3AF' }}>{rol[c.role] ?? c.role} · {flag[c.country]}</div>
+
+        {/* Scrollable body */}
+        <div style={{ overflowY:'auto', flex:1 }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding:'40px 22px', textAlign:'center', color:'#9CA3AF', fontSize:13 }}>
+              No se encontraron contactos{search ? ` para "${search}"` : ''}
+            </div>
+          ) : filtered.map((c, i) => (
+            <div key={c.id} style={{ display:'grid', gridTemplateColumns:'2fr 2fr 1fr 1fr 1fr 1fr', padding:'13px 22px', borderBottom: i < filtered.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ width:34, height:34, borderRadius:'50%', background:ib[c.icp_score], border:`1px solid ${ic[c.icp_score]}33`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:ic[c.icp_score], flexShrink:0 }}>{c.first_name[0]}{c.last_name[0]}</div>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#1A1A2E' }}>{c.first_name} {c.last_name}</div>
+                  <div style={{ fontSize:11, color:'#9CA3AF' }}>{rol[c.role] ?? c.role} · {flag[c.country]}</div>
+                </div>
+              </div>
+              <div>{c.company ? <div><div style={{ fontSize:13, fontWeight:600, color:'#1A1A2E' }}>{c.company.name}</div><div style={{ fontSize:11, color:'#9CA3AF' }}>{c.company.clients ? `${c.company.clients} clientes` : c.company.employees ? `${c.company.employees} empleados` : ''}</div></div> : <span style={{ fontSize:12, color:'#9CA3AF', fontStyle:'italic' }}>Sin empresa</span>}</div>
+              <div><span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: c.segment==='CONTADOR' ? '#F0EDF8' : '#E8F8F0', color: c.segment==='CONTADOR' ? '#5C2D91' : '#00A363' }}>{c.segment}</span></div>
+              <div><span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, color:ic[c.icp_score], background:ib[c.icp_score] }}>{c.icp_score}</span></div>
+              <div style={{ fontSize:12, color:'#6B7280' }}>{src[c.source] ?? c.source}</div>
+              <div style={{ display:'flex', gap:5 }}>
+                {!c.deals.length ? <span style={{ color:'#E5E7EB', fontSize:11 }}>—</span> : c.deals.map((d:any, di:number) => (
+                  <span key={di} style={{ fontSize:11, padding:'2px 8px', borderRadius:20, fontWeight:700, background: d.stage==='closed_won' ? '#E8F8F0' : d.stage==='closed_lost' ? 'rgba(239,68,68,0.08)' : '#F5F4FA', color: d.stage==='closed_won' ? '#00A363' : d.stage==='closed_lost' ? '#EF4444' : '#9CA3AF' }}>{d.stage==='closed_won' ? '✓' : d.stage==='closed_lost' ? '✕' : '●'}</span>
+                ))}
               </div>
             </div>
-            <div>{c.company ? <div><div style={{ fontSize:13, fontWeight:600, color:'#1A1A2E' }}>{c.company.name}</div><div style={{ fontSize:11, color:'#9CA3AF' }}>{c.company.clients ? `${c.company.clients} clientes` : c.company.employees ? `${c.company.employees} empleados` : ''}</div></div> : <span style={{ fontSize:12, color:'#9CA3AF', fontStyle:'italic' }}>Sin empresa</span>}</div>
-            <div><span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: c.segment==='CONTADOR' ? '#F0EDF8' : '#E8F8F0', color: c.segment==='CONTADOR' ? '#5C2D91' : '#00A363' }}>{c.segment}</span></div>
-            <div><span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, color:ic[c.icp_score], background:ib[c.icp_score] }}>{c.icp_score}</span></div>
-            <div style={{ fontSize:12, color:'#6B7280' }}>{src[c.source] ?? c.source}</div>
-            <div style={{ display:'flex', gap:5 }}>
-              {!c.deals.length ? <span style={{ color:'#E5E7EB', fontSize:11 }}>—</span> : c.deals.map((d:any, di:number) => (
-                <span key={di} style={{ fontSize:11, padding:'2px 8px', borderRadius:20, fontWeight:700, background: d.stage==='closed_won' ? '#E8F8F0' : d.stage==='closed_lost' ? 'rgba(239,68,68,0.08)' : '#F5F4FA', color: d.stage==='closed_won' ? '#00A363' : d.stage==='closed_lost' ? '#EF4444' : '#9CA3AF' }}>{d.stage==='closed_won' ? '✓' : d.stage==='closed_lost' ? '✕' : '●'}</span>
-              ))}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )
