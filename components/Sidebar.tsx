@@ -4,11 +4,11 @@ import { usePathname } from 'next/navigation'
 
 const nav = [
   { href: '/',             label: 'Dashboard',    icon: '▦' },
-  { href: '/pipeline',     label: 'Pipeline',      icon: '◈' },
-  { href: '/contactos',    label: 'Contactos',     icon: '◉' },
-  { href: '/empresas',     label: 'Empresas',      icon: '▣' },
+  { href: '/contactos',    label: 'Contactos',    icon: '◉' },
+  { href: '/empresas',     label: 'Empresas',     icon: '▣' },
+  { href: '/pipeline',     label: 'Deals',        icon: '◈' },
   { href: '/agente',       label: 'Lead Agent IA', icon: '◆', highlight: true },
-  { href: '/arquitectura', label: 'Arquitectura',  icon: '⬡' },
+  { href: '/arquitectura', label: 'Arquitectura', icon: '⬡' },
 ]
 
 export default function Sidebar() {
