@@ -165,6 +165,16 @@ export default function AgentePage() {
     // 2. Create deal
     const co = selectedContact.company_id ? crmCompanies[selectedContact.company_id] : null
     const dealTitle = co ? `${co.name} — ${segment === 'CONTADOR' ? 'Plan Despacho' : 'Plan PyME'}` : `${selectedContact.first_name} ${selectedContact.last_name} — Nuevo lead`
+    const aiNote = JSON.stringify([{
+      type: 'ai_analysis',
+      icp_score: icp,
+      segment: parsed.segment,
+      confidence: parsed.confidence ?? 'MEDIUM',
+      pain_hypothesis: parsed.pain_hypothesis ?? '',
+      first_message: parsed.first_message ?? '',
+      routing_reason: parsed.routing_reason ?? '',
+      created_at: new Date().toISOString(),
+    }])
     const dealBody = {
       title: dealTitle,
       contact_id: selectedContact.id,
@@ -175,6 +185,7 @@ export default function AgentePage() {
       mrr: 0,
       confidence: parsed.confidence ?? 'MEDIUM',
       pain_hypothesis: parsed.pain_hypothesis ?? '',
+      notes: aiNote,
     }
     const dealRes = await fetch(`${SUPABASE_URL}/rest/v1/deals`, {
       method: 'POST',

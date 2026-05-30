@@ -15,7 +15,7 @@ const stageColor: Record<string,string> = { closed_won:'#00A363', closed_lost:'#
 const lossLabel: Record<string,string> = { precio:'Precio', timing:'Timing', competencia:'Competencia', no_califica:'No califica', no_responde:'No responde', proyecto_cancelado:'Proyecto cancelado' }
 const painLabel: Record<string,string> = { cierres_manuales:'Cierres manuales', errores_declaraciones:'Errores en declaraciones', tiempo_conciliaciones:'Tiempo conciliaciones', reportes:'Reportes', facturacion:'Facturación', nomina:'Nómina' }
 
-type NoteEntry = { text: string; created_at: string }
+type NoteEntry = { text?: string; type?: string; created_at: string; icp_score?: string; segment?: string; confidence?: string; pain_hypothesis?: string; first_message?: string; routing_reason?: string }
 
 function parseNotes(raw: string | null): NoteEntry[] {
   if (!raw) return []
@@ -51,6 +51,7 @@ export default function DealDetalle() {
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [activeTab, setActiveTab] = useState<'notas'|'ai'>('notas')
 
   useEffect(() => {
     dbFetch('deals', `select=*&id=eq.${id}`).then(async ([d]) => {
@@ -214,53 +215,127 @@ export default function DealDetalle() {
             )}
           </div>
 
-          {/* Notas */}
+          {/* Notas + Análisis IA tabs */}
           <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ padding:'16px 20px', borderBottom:'1px solid #E5E7EB' }}>
-              <span style={{ fontSize:13, fontWeight:700, color:'#1A1A2E' }}>Notas</span>
-            </div>
-            <div style={{ padding:'16px 20px', borderBottom: noteHistory.length > 0 ? '1px solid #E5E7EB' : 'none' }}>
-              <textarea
-                value={newNote}
-                onChange={e => setNewNote(e.target.value)}
-                placeholder="Escribe una nota sobre este deal…"
-                rows={3}
-                style={{ width:'100%', padding:'10px 12px', border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, color:'#1A1A2E', resize:'none', outline:'none', fontFamily:'inherit', background:'#FAFAFA', boxSizing:'border-box' }}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addNote() }}
-              />
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-                <span style={{ fontSize:11, color:'#9CA3AF' }}>⌘ + Enter para guardar</span>
-                <button
-                  onClick={addNote}
-                  disabled={saving || !newNote.trim()}
-                  style={{ padding:'8px 18px', background: saved ? '#00A363' : !newNote.trim() ? '#E5E7EB' : '#00C073', color: !newNote.trim() ? '#9CA3AF' : '#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor: newNote.trim() ? 'pointer' : 'default', transition:'background 0.2s' }}
-                >
-                  {saved ? '✓ Guardado' : saving ? 'Guardando…' : 'Agregar nota'}
+            {/* Tab header */}
+            <div style={{ padding:'0 20px', borderBottom:'1px solid #E5E7EB', display:'flex', gap:0 }}>
+              {([
+                { id:'notas', label:'Notas' },
+                { id:'ai', label:'◆ Análisis IA', hasData: noteHistory.some(n => n.type === 'ai_analysis') },
+              ] as const).map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ padding:'14px 16px', fontSize:13, fontWeight: activeTab===tab.id ? 700 : 500, color: activeTab===tab.id ? (tab.id==='ai' ? '#5C2D91' : '#1A1A2E') : '#9CA3AF', background:'none', border:'none', borderBottom: activeTab===tab.id ? `2px solid ${tab.id==='ai' ? '#5C2D91' : '#1A1A2E'}` : '2px solid transparent', cursor:'pointer', marginBottom:-1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6 }}>
+                  {tab.label}
+                  {tab.id === 'ai' && (tab as any).hasData && <span style={{ width:6, height:6, borderRadius:'50%', background:'#5C2D91', display:'inline-block' }} />}
                 </button>
-              </div>
+              ))}
             </div>
-            {noteHistory.length > 0 ? (
-              <div style={{ padding:'4px 0' }}>
-                {noteHistory.map((n, i) => (
-                  <div key={i} style={{ padding:'14px 20px', borderBottom: i < noteHistory.length-1 ? '1px solid #F5F4FA' : 'none', display:'flex', gap:12 }}>
-                    <div style={{ width:28, height:28, borderRadius:'50%', background:'rgba(0,192,115,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#00A363', flexShrink:0, marginTop:1 }}>◈</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                        <span style={{ fontSize:12, fontWeight:700, color:'#1A1A2E' }}>Nota del deal</span>
-                        <span style={{ fontSize:11, color:'#9CA3AF' }}>
-                          {new Date(n.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' })}
-                          {' · '}
-                          {new Date(n.created_at).toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' })}
-                        </span>
-                      </div>
-                      <div style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>{n.text}</div>
-                    </div>
-                  </div>
-                ))}
+            {/* TAB: Notas */}
+            {activeTab === 'notas' && <>
+              <div style={{ padding:'16px 20px', borderBottom: noteHistory.filter(n=>!n.type).length > 0 ? '1px solid #E5E7EB' : 'none' }}>
+                <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Escribe una nota sobre este deal…" rows={3}
+                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, color:'#1A1A2E', resize:'none', outline:'none', fontFamily:'inherit', background:'#FAFAFA', boxSizing:'border-box' }}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addNote() }}
+                />
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+                  <span style={{ fontSize:11, color:'#9CA3AF' }}>⌘ + Enter para guardar</span>
+                  <button onClick={addNote} disabled={saving || !newNote.trim()}
+                    style={{ padding:'8px 18px', background: saved ? '#00A363' : !newNote.trim() ? '#E5E7EB' : '#00C073', color: !newNote.trim() ? '#9CA3AF' : '#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor: newNote.trim() ? 'pointer' : 'default' }}>
+                    {saved ? '✓ Guardado' : saving ? 'Guardando…' : 'Agregar nota'}
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div style={{ padding:'20px', textAlign:'center', color:'#9CA3AF', fontSize:12 }}>Sin notas aún</div>
-            )}
+              {noteHistory.filter(n => !n.type).length > 0 ? (
+                <div style={{ padding:'4px 0' }}>
+                  {noteHistory.filter(n => !n.type).map((n, i, arr) => (
+                    <div key={i} style={{ padding:'14px 20px', borderBottom: i < arr.length-1 ? '1px solid #F5F4FA' : 'none', display:'flex', gap:12 }}>
+                      <div style={{ width:28, height:28, borderRadius:'50%', background:'rgba(0,192,115,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#00A363', flexShrink:0, marginTop:1 }}>◈</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                          <span style={{ fontSize:12, fontWeight:700, color:'#1A1A2E' }}>Nota del deal</span>
+                          <span style={{ fontSize:11, color:'#9CA3AF' }}>{new Date(n.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'short' })} · {new Date(n.created_at).toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' })}</span>
+                        </div>
+                        <div style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>{n.text}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding:'20px', textAlign:'center', color:'#9CA3AF', fontSize:12 }}>Sin notas aún</div>
+              )}
+            </>}
+
+            {/* TAB: Análisis IA */}
+            {activeTab === 'ai' && (() => {
+              const aiEntries = noteHistory.filter(n => n.type === 'ai_analysis')
+              if (aiEntries.length === 0) return (
+                <div style={{ padding:'32px 20px', textAlign:'center' }}>
+                  <div style={{ fontSize:24, marginBottom:10 }}>◆</div>
+                  <div style={{ fontSize:13, color:'#9CA3AF' }}>Este deal aún no tiene análisis de IA.<br />Usa el Lead Intelligence Agent para clasificarlo.</div>
+                </div>
+              )
+              return (
+                <div style={{ padding:'20px', display:'flex', flexDirection:'column', gap:16 }}>
+                  {aiEntries.map((entry, i) => (
+                    <div key={i}>
+                      {/* Header badge */}
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 12px', background:'rgba(92,45,145,0.08)', borderRadius:20, border:'1px solid rgba(92,45,145,0.2)' }}>
+                          <span style={{ width:7, height:7, borderRadius:'50%', background:'#5C2D91', display:'inline-block' }} />
+                          <span style={{ fontSize:11, fontWeight:700, color:'#5C2D91', textTransform:'uppercase', letterSpacing:0.8 }}>DeepSeek Analysis</span>
+                        </div>
+                        <span style={{ fontSize:11, color:'#9CA3AF' }}>{new Date(entry.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' })} · {new Date(entry.created_at).toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' })}</span>
+                      </div>
+
+                      {/* Scores row */}
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14 }}>
+                        {entry.icp_score && (
+                          <div style={{ padding:'12px', background:ib[entry.icp_score]??'#F5F4FA', borderRadius:10, textAlign:'center', border:`1px solid ${(ic[entry.icp_score]??'#9CA3AF')}33` }}>
+                            <div style={{ fontSize:18, fontWeight:800, color:ic[entry.icp_score] }}>{entry.icp_score}</div>
+                            <div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>ICP Score</div>
+                          </div>
+                        )}
+                        {entry.segment && (
+                          <div style={{ padding:'12px', background:'#F5F4FA', borderRadius:10, textAlign:'center' }}>
+                            <div style={{ fontSize:13, fontWeight:700, color: entry.segment==='CONTADOR'?'#5C2D91':'#00A363' }}>{entry.segment}</div>
+                            <div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>Segmento</div>
+                          </div>
+                        )}
+                        {entry.confidence && (
+                          <div style={{ padding:'12px', background:'#F5F4FA', borderRadius:10, textAlign:'center' }}>
+                            <div style={{ fontSize:13, fontWeight:700, color:'#6B7280' }}>{entry.confidence}</div>
+                            <div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>Confianza</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Pain hypothesis */}
+                      {entry.pain_hypothesis && (
+                        <div style={{ padding:'12px 14px', background:'#F5F4FA', borderRadius:10, borderLeft:'3px solid #5C2D91', marginBottom:14 }}>
+                          <div style={{ fontSize:10, color:'#5C2D91', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:5 }}>Pain hypothesis</div>
+                          <div style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>{entry.pain_hypothesis}</div>
+                        </div>
+                      )}
+
+                      {/* WhatsApp message */}
+                      {entry.first_message && (
+                        <div style={{ padding:'14px', background:'#1a2b1a', borderRadius:10, marginBottom: entry.routing_reason ? 14 : 0 }}>
+                          <div style={{ fontSize:10, color:'#52c41a', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:8 }}>📱 Primer mensaje WhatsApp</div>
+                          <div style={{ fontSize:13, color:'#e8e8ed', lineHeight:1.6, background:'#0f1f0f', borderRadius:8, padding:'10px 12px' }}>{entry.first_message}</div>
+                        </div>
+                      )}
+
+                      {/* Routing reason */}
+                      {entry.routing_reason && (
+                        <div style={{ padding:'10px 14px', background:'rgba(0,192,115,0.06)', borderRadius:8, border:'1px solid rgba(0,192,115,0.15)' }}>
+                          <div style={{ fontSize:10, color:'#00A363', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:3 }}>Routing</div>
+                          <div style={{ fontSize:12, color:'#374151' }}>{entry.routing_reason}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         </div>
 
