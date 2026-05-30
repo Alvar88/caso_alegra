@@ -226,7 +226,10 @@ export default function ContactoDetalle() {
             <div style={{ fontSize:11, color:'#9CA3AF', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:14 }}>Empresa asociada</div>
             {company ? (
               <>
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+                <div onClick={() => router.push(`/empresas/${company.id}`)} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, cursor:'pointer', borderRadius:8, padding:'6px', margin:'-6px -6px 8px' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
                   <div style={{ width:36, height:36, borderRadius:9, background: company.segment==='CONTADOR' ? '#F0EDF8' : '#E8F8F0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>
                     {company.segment === 'CONTADOR' ? '⊞' : '◧'}
                   </div>
