@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
 
 const flag: Record<string,string> = { MX:'🇲🇽', CO:'🇨🇴', PE:'🇵🇪', AR:'🇦🇷' }
@@ -9,6 +10,7 @@ const ic: Record<string,string> = { HOT:'#EF4444', WARM:'#B45309', COLD:'#9CA3AF
 const ib: Record<string,string> = { HOT:'rgba(239,68,68,0.08)', WARM:'#FFF8E7', COLD:'#F5F4FA' }
 
 export default function ContactosPage() {
+  const router = useRouter()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -123,7 +125,10 @@ export default function ContactosPage() {
               No se encontraron contactos{search ? ` para "${search}"` : ''}
             </div>
           ) : filtered.map((c, i) => (
-            <div key={c.id} style={{ display:'grid', gridTemplateColumns:'2fr 2fr 1fr 1fr 1fr 1fr', padding:'13px 22px', borderBottom: i < filtered.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center' }}>
+            <div key={c.id} onClick={() => router.push(`/contactos/${c.id}`)} style={{ display:'grid', gridTemplateColumns:'2fr 2fr 1fr 1fr 1fr 1fr', padding:'13px 22px', borderBottom: i < filtered.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center', cursor:'pointer' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <div style={{ width:34, height:34, borderRadius:'50%', background:ib[c.icp_score], border:`1px solid ${ic[c.icp_score]}33`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:ic[c.icp_score], flexShrink:0 }}>{c.first_name[0]}{c.last_name[0]}</div>
                 <div>
