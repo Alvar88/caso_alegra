@@ -1,11 +1,6 @@
 import OpenAI from 'openai'
 import { NextRequest } from 'next/server'
 
-const client = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY ?? '',
-  baseURL: 'https://api.deepseek.com',
-})
-
 const SYSTEM_PROMPT = `Eres el Lead Intelligence Agent de Alegra, plataforma SaaS de contabilidad para PyMEs y despachos contables en América Latina.
 
 CONTEXTO DE SEGMENTOS:
@@ -51,6 +46,11 @@ export async function POST(req: NextRequest) {
 - Contenido/acción: ${lead.accion}
 - Software actual: ${lead.software || 'No especificado'}
 - Notas adicionales: ${lead.notas || 'Ninguna'}`
+
+  const client = new OpenAI({
+    apiKey: process.env.DEEPSEEK_API_KEY!,
+    baseURL: 'https://api.deepseek.com',
+  })
 
   const stream = await client.chat.completions.create({
     model: 'deepseek-chat',
