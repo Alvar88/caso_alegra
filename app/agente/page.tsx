@@ -152,28 +152,40 @@ export default function AgentePage() {
     if (!selectedContact || !parsed || !assignedRep) return
     setApplying(true)
 
-    const icp = parsed.icp_score as 'HOT'|'WARM'|'COLD'
-    const segment = parsed.segment
+    // Sanitize values — trim whitespace and force uppercase for ENUMs
+    const validIcp: Record<string,string> = { HOT:'HOT', WARM:'WARM', COLD:'COLD' }
+    const rawIcp = parsed.icp_score?.trim().toUpperCase() ?? 'COLD'
+    const icp = (validIcp[rawIcp] ?? 'COLD') as 'HOT'|'WARM'|'COLD'
+    const segment = parsed.segment?.trim().toUpperCase() === 'CONTADOR' ? 'CONTADOR' : 'PYME'
 
     const aiEntry = {
       type: 'ai_analysis',
       icp_score: icp,
-      segment: parsed.segment,
-      confidence: parsed.confidence ?? 'MEDIUM',
+      segment,
+      confidence: parsed.confidence?.trim().toUpperCase() ?? 'MEDIUM',
       pain_hypothesis: parsed.pain_hypothesis ?? '',
       first_message: parsed.first_message ?? '',
       routing_reason: parsed.routing_reason ?? '',
       created_at: new Date().toISOString(),
     }
 
-    // 1. Update contact: icp_score + save AI analysis in notes
+    // 1a. Update contact notes only (TEXT field — always safe)
     const existingNotes = (() => { try { const p = JSON.parse(selectedContact.notes ?? '[]'); return Array.isArray(p) ? p : [] } catch { return [] } })()
     const updatedContactNotes = JSON.stringify([aiEntry, ...existingNotes])
-    await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${selectedContact.id}`, {
+    const notesRes = await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${selectedContact.id}`, {
       method: 'PATCH',
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ icp_score: icp, notes: updatedContactNotes }),
-    }).catch(() => {})
+      body: JSON.stringify({ notes: updatedContactNotes }),
+    }).catch(() => null)
+    if (notesRes && !notesRes.ok) console.error('[aplicarAlCRM] notes PATCH failed:', notesRes.status, await notesRes.text().catch(()=>''))
+
+    // 1b. Update icp_score separately (ENUM field)
+    const icpRes = await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${selectedContact.id}`, {
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ icp_score: icp }),
+    }).catch(() => null)
+    if (icpRes && !icpRes.ok) console.error('[aplicarAlCRM] icp_score PATCH failed:', icpRes.status, await icpRes.text().catch(()=>''))
 
     // 2. Create deal
     const co = selectedContact.company_id ? crmCompanies[selectedContact.company_id] : null
