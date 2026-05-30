@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { dbFetch } from '@/lib/db'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jpptlznlexkxehxnyjeh.supabase.co'
@@ -22,6 +23,8 @@ export default function PipelineKanban() {
   const [loading, setLoading] = useState(true)
   const [dragOverStage, setDragOverStage] = useState<string|null>(null)
   const draggedId = useRef<string|null>(null)
+  const didDrag = useRef(false)
+  const router = useRouter()
 
   useEffect(() => {
     Promise.all([
@@ -41,6 +44,7 @@ export default function PipelineKanban() {
 
   function handleDragStart(e: React.DragEvent, dealId: string) {
     draggedId.current = dealId
+    didDrag.current = true
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -146,13 +150,15 @@ export default function PipelineKanban() {
                     key={d.id}
                     draggable
                     onDragStart={e => handleDragStart(e, d.id)}
+                    onDragEnd={() => { setTimeout(() => { didDrag.current = false }, 50) }}
+                    onClick={() => { if (!didDrag.current) router.push(`/pipeline/${d.id}`) }}
                     style={{
                       background:'#FAFAFA',
                       border:'1px solid #E5E7EB',
                       borderLeft:`3px solid ${ic[d.icp_score]}`,
                       borderRadius:8,
                       padding:'10px 12px',
-                      cursor:'grab',
+                      cursor:'pointer',
                       userSelect:'none',
                       transition:'box-shadow 0.15s, opacity 0.15s',
                     }}
