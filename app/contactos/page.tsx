@@ -12,6 +12,8 @@ export default function ContactosPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [segmento, setSegmento] = useState('')
+  const [icp, setIcp] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -28,14 +30,17 @@ export default function ContactosPage() {
   }, [])
 
   const filtered = rows.filter(c => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
-      c.email?.toLowerCase().includes(q) ||
-      c.company?.name?.toLowerCase().includes(q) ||
-      c.segment?.toLowerCase().includes(q)
-    )
+    if (segmento && c.segment !== segmento) return false
+    if (icp && c.icp_score !== icp) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return (
+        `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.company?.name?.toLowerCase().includes(q)
+      )
+    }
+    return true
   })
 
   if (loading) return (
@@ -56,20 +61,52 @@ export default function ContactosPage() {
         </p>
       </div>
 
-      {/* Search */}
-      <div style={{ marginBottom:16, position:'relative', maxWidth:360 }}>
-        <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'#9CA3AF', fontSize:14, pointerEvents:'none' }}>🔍</span>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por nombre, empresa, email…"
-          style={{
-            width:'100%', padding:'9px 12px 9px 34px',
-            border:'1px solid #E5E7EB', borderRadius:8,
-            fontSize:13, color:'#1A1A2E', background:'#fff',
-            outline:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.04)',
-          }}
-        />
+      {/* Search + Filters */}
+      <div style={{ display:'flex', gap:10, marginBottom:16, alignItems:'center', flexWrap:'wrap' }}>
+        <div style={{ position:'relative', flex:'1 1 260px', maxWidth:360 }}>
+          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'#9CA3AF', fontSize:14, pointerEvents:'none' }}>🔍</span>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, empresa, email…"
+            style={{
+              width:'100%', padding:'9px 12px 9px 34px',
+              border:'1px solid #E5E7EB', borderRadius:8,
+              fontSize:13, color:'#1A1A2E', background:'#fff',
+              outline:'none', boxShadow:'0 1px 4px rgba(0,0,0,0.04)',
+            }}
+          />
+        </div>
+
+        <select
+          value={segmento}
+          onChange={e => setSegmento(e.target.value)}
+          style={{ padding:'9px 32px 9px 12px', border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, color: segmento ? '#1A1A2E' : '#9CA3AF', background:'#fff', outline:'none', cursor:'pointer', appearance:'none', backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239CA3AF' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 10px center', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}
+        >
+          <option value=''>Segmento: Todos</option>
+          <option value='CONTADOR'>Contador</option>
+          <option value='PYME'>PyME</option>
+        </select>
+
+        <select
+          value={icp}
+          onChange={e => setIcp(e.target.value)}
+          style={{ padding:'9px 32px 9px 12px', border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, color: icp ? '#1A1A2E' : '#9CA3AF', background:'#fff', outline:'none', cursor:'pointer', appearance:'none', backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239CA3AF' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 10px center', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}
+        >
+          <option value=''>ICP: Todos</option>
+          <option value='HOT'>HOT</option>
+          <option value='WARM'>WARM</option>
+          <option value='COLD'>COLD</option>
+        </select>
+
+        {(segmento || icp || search) && (
+          <button
+            onClick={() => { setSearch(''); setSegmento(''); setIcp('') }}
+            style={{ padding:'9px 14px', border:'1px solid #E5E7EB', borderRadius:8, fontSize:12, color:'#6B7280', background:'#fff', cursor:'pointer', whiteSpace:'nowrap' }}
+          >
+            Limpiar filtros
+          </button>
+        )}
       </div>
 
       {/* Table */}
