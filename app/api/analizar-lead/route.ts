@@ -28,9 +28,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { lead } = body
 
-  if (!process.env.DEEPSEEK_API_KEY) {
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.DEEPSEEK
+  if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: 'DEEPSEEK_API_KEY no configurada. Agrégala en las variables de entorno de Vercel.' }),
+      JSON.stringify({ error: 'API key de DeepSeek no configurada. Agrega DEEPSEEK o DEEPSEEK_API_KEY en Vercel.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 - Notas adicionales: ${lead.notas || 'Ninguna'}`
 
   const client = new OpenAI({
-    apiKey: process.env.DEEPSEEK_API_KEY!,
+    apiKey: apiKey,
     baseURL: 'https://api.deepseek.com',
   })
 
