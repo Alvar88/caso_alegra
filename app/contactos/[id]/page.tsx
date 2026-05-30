@@ -14,6 +14,20 @@ const src: Record<string,string> = { webinar:'Webinar', formulario_web:'Formular
 const stageLabel: Record<string,string> = { discovery:'Discovery', calificacion:'Calificación', demo:'Demo', trial:'Trial', negociacion:'Negociación', closed_won:'Closed Won', closed_lost:'Closed Lost', ramp:'Ramp' }
 const stageColor: Record<string,string> = { closed_won:'#00A363', closed_lost:'#EF4444', ramp:'#5C2D91' }
 
+type NoteEntry = { text: string; created_at: string }
+
+function parseNotes(raw: string | null): NoteEntry[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed
+    // Plain text legacy → wrap as single entry
+    return [{ text: raw, created_at: new Date().toISOString() }]
+  } catch {
+    return raw.trim() ? [{ text: raw, created_at: new Date().toISOString() }] : []
+  }
+}
+
 function Prop({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
@@ -32,7 +46,8 @@ export default function ContactoDetalle() {
   const [company, setCompany] = useState<any>(null)
   const [deals, setDeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [notes, setNotes] = useState('')
+  const [noteHistory, setNoteHistory] = useState<NoteEntry[]>([])
+  const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -43,9 +58,8 @@ export default function ContactoDetalle() {
     ]).then(async ([contacts, dealsData]) => {
       const c = contacts[0] ?? null
       setContact(c)
-      setNotes(c?.notes ?? '')
+      setNoteHistory(parseNotes(c?.notes ?? null))
       setDeals(dealsData)
-
       if (c?.company_id) {
         const cos = await dbFetch('companies', `select=*&id=eq.${c.company_id}`)
         setCompany(cos[0] ?? null)
@@ -54,8 +68,11 @@ export default function ContactoDetalle() {
     })
   }, [id])
 
-  async function saveNotes() {
+  async function addNote() {
+    if (!newNote.trim()) return
     setSaving(true)
+    const entry: NoteEntry = { text: newNote.trim(), created_at: new Date().toISOString() }
+    const updated = [entry, ...noteHistory]
     await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${id}`, {
       method: 'PATCH',
       headers: {
@@ -64,8 +81,10 @@ export default function ContactoDetalle() {
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ notes: JSON.stringify(updated) }),
     }).catch(() => {})
+    setNoteHistory(updated)
+    setNewNote('')
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -86,17 +105,14 @@ export default function ContactoDetalle() {
 
   return (
     <div style={{ padding:'28px 32px', height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-      {/* Back */}
       <button onClick={() => router.push('/contactos')} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'#6B7280', background:'none', border:'none', cursor:'pointer', padding:'0 0 18px', fontFamily:'inherit' }}>
         ← Volver a Contactos
       </button>
 
-      {/* 3-column layout */}
       <div style={{ display:'grid', gridTemplateColumns:'260px 1fr 220px', gap:20, flex:1, minHeight:0 }}>
 
-        {/* ── LEFT: Info del contacto ── */}
+        {/* ── LEFT ── */}
         <div style={{ overflowY:'auto', display:'flex', flexDirection:'column', gap:14 }}>
-          {/* Name card */}
           <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, padding:'22px 20px', textAlign:'center', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
             <div style={{ width:56, height:56, borderRadius:'50%', background:ib[contact.icp_score], border:`2px solid ${ic[contact.icp_score]}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:800, color:ic[contact.icp_score], margin:'0 auto 12px' }}>
               {initials}
@@ -109,7 +125,6 @@ export default function ContactoDetalle() {
             </div>
           </div>
 
-          {/* Properties */}
           <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, padding:'18px 20px', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
             <div style={{ fontSize:11, color:'#9CA3AF', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:14 }}>Propiedades</div>
             <Prop label="Email" value={contact.email} />
@@ -120,30 +135,9 @@ export default function ContactoDetalle() {
           </div>
         </div>
 
-        {/* ── CENTER: Notas + Deals ── */}
+        {/* ── CENTER ── */}
         <div style={{ overflowY:'auto', display:'flex', flexDirection:'column', gap:16 }}>
-          {/* Notes */}
-          <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, padding:'20px', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#1A1A2E', marginBottom:12 }}>Notas</div>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Agrega notas sobre este contacto…"
-              rows={5}
-              style={{ width:'100%', padding:'10px 12px', border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, color:'#1A1A2E', resize:'vertical', outline:'none', fontFamily:'inherit', background:'#FAFAFA', boxSizing:'border-box' }}
-            />
-            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:10 }}>
-              <button
-                onClick={saveNotes}
-                disabled={saving}
-                style={{ padding:'8px 20px', background: saved ? '#00A363' : '#00C073', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', transition:'background 0.2s' }}
-              >
-                {saved ? '✓ Guardado' : saving ? 'Guardando…' : 'Guardar notas'}
-              </button>
-            </div>
-          </div>
-
-          {/* Deals asociados */}
+          {/* Deals */}
           <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
             <div style={{ padding:'16px 20px', borderBottom:'1px solid #E5E7EB', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <span style={{ fontSize:13, fontWeight:700, color:'#1A1A2E' }}>Deals asociados</span>
@@ -159,23 +153,74 @@ export default function ContactoDetalle() {
                 {deals.map((d, i) => (
                   <div key={d.id} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', padding:'13px 20px', borderBottom: i < deals.length-1 ? '1px solid #E5E7EB' : 'none', alignItems:'center' }}>
                     <div style={{ fontSize:13, fontWeight:600, color:'#1A1A2E' }}>{d.title}</div>
-                    <div>
-                      <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background: stageColor[d.stage] ? stageColor[d.stage]+'18' : '#F5F4FA', color: stageColor[d.stage] ?? '#6B7280' }}>
-                        {stageLabel[d.stage] ?? d.stage}
-                      </span>
-                    </div>
+                    <div><span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background: stageColor[d.stage] ? stageColor[d.stage]+'18' : '#F5F4FA', color: stageColor[d.stage] ?? '#6B7280' }}>{stageLabel[d.stage] ?? d.stage}</span></div>
                     <div><span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, color:ic[d.icp_score], background:ib[d.icp_score] }}>{d.icp_score}</span></div>
-                    <div style={{ fontSize:13, fontWeight:700, color: d.stage==='closed_won' ? '#00A363' : '#1A1A2E' }}>
-                      {Number(d.mrr) > 0 ? `$${Number(d.mrr).toLocaleString()}/m` : '—'}
-                    </div>
+                    <div style={{ fontSize:13, fontWeight:700, color: d.stage==='closed_won' ? '#00A363' : '#1A1A2E' }}>{Number(d.mrr) > 0 ? `$${Number(d.mrr).toLocaleString()}/m` : '—'}</div>
                   </div>
                 ))}
               </>
             )}
           </div>
+
+          {/* Notes */}
+          <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
+            <div style={{ padding:'16px 20px', borderBottom:'1px solid #E5E7EB' }}>
+              <span style={{ fontSize:13, fontWeight:700, color:'#1A1A2E' }}>Notas</span>
+            </div>
+
+            {/* New note input */}
+            <div style={{ padding:'16px 20px', borderBottom: noteHistory.length > 0 ? '1px solid #E5E7EB' : 'none' }}>
+              <textarea
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                placeholder="Escribe una nota…"
+                rows={3}
+                style={{ width:'100%', padding:'10px 12px', border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, color:'#1A1A2E', resize:'none', outline:'none', fontFamily:'inherit', background:'#FAFAFA', boxSizing:'border-box' }}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addNote() }}
+              />
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+                <span style={{ fontSize:11, color:'#9CA3AF' }}>⌘ + Enter para guardar</span>
+                <button
+                  onClick={addNote}
+                  disabled={saving || !newNote.trim()}
+                  style={{ padding:'8px 18px', background: saved ? '#00A363' : !newNote.trim() ? '#E5E7EB' : '#00C073', color: !newNote.trim() ? '#9CA3AF' : '#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor: newNote.trim() ? 'pointer' : 'default', transition:'background 0.2s' }}
+                >
+                  {saved ? '✓ Guardado' : saving ? 'Guardando…' : 'Agregar nota'}
+                </button>
+              </div>
+            </div>
+
+            {/* History */}
+            {noteHistory.length > 0 && (
+              <div style={{ padding:'4px 0' }}>
+                {noteHistory.map((n, i) => (
+                  <div key={i} style={{ padding:'14px 20px', borderBottom: i < noteHistory.length-1 ? '1px solid #F5F4FA' : 'none', display:'flex', gap:12 }}>
+                    <div style={{ width:28, height:28, borderRadius:'50%', background:'#F0EDF8', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#5C2D91', flexShrink:0, marginTop:1 }}>
+                      {contact.first_name?.[0]}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                        <span style={{ fontSize:12, fontWeight:700, color:'#1A1A2E' }}>{contact.first_name} {contact.last_name}</span>
+                        <span style={{ fontSize:11, color:'#9CA3AF' }}>
+                          {new Date(n.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' })}
+                          {' · '}
+                          {new Date(n.created_at).toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' })}
+                        </span>
+                      </div>
+                      <div style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>{n.text}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {noteHistory.length === 0 && (
+              <div style={{ padding:'20px', textAlign:'center', color:'#9CA3AF', fontSize:12 }}>Sin notas aún</div>
+            )}
+          </div>
         </div>
 
-        {/* ── RIGHT: Empresa asociada ── */}
+        {/* ── RIGHT ── */}
         <div style={{ overflowY:'auto', display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, padding:'18px', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
             <div style={{ fontSize:11, color:'#9CA3AF', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:14 }}>Empresa asociada</div>
@@ -200,15 +245,14 @@ export default function ContactoDetalle() {
             )}
           </div>
 
-          {/* Deal summary */}
           {deals.length > 0 && (
             <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, padding:'18px', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize:11, color:'#9CA3AF', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:14 }}>Resumen de deals</div>
+              <div style={{ fontSize:11, color:'#9CA3AF', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginBottom:14 }}>Resumen deals</div>
               {[
-                { label:'Total deals', value: deals.length },
+                { label:'Total', value: deals.length },
                 { label:'Won', value: deals.filter(d=>d.stage==='closed_won').length },
                 { label:'Activos', value: deals.filter(d=>!['closed_won','closed_lost'].includes(d.stage)).length },
-                { label:'MRR total', value: `$${deals.filter(d=>d.stage==='closed_won').reduce((s,d)=>s+Number(d.mrr),0).toLocaleString()}` },
+                { label:'MRR', value: `$${deals.filter(d=>d.stage==='closed_won').reduce((s,d)=>s+Number(d.mrr),0).toLocaleString()}` },
               ].map(s => (
                 <div key={s.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                   <span style={{ fontSize:12, color:'#6B7280' }}>{s.label}</span>
