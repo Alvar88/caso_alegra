@@ -1,3 +1,5 @@
+'use client'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const countryFlag: Record<string, string> = { MX: '🇲🇽', CO: '🇨🇴', PE: '🇵🇪', AR: '🇦🇷' }
@@ -11,116 +13,126 @@ const roleLabel: Record<string, string> = {
   contador_externo: 'Contador externo', cfo: 'CFO', administradora: 'Administradora',
   fundador: 'Fundador/a', director_finanzas: 'Dir. Finanzas', socio: 'Socio',
 }
-const icpStyle: Record<string, { color: string; bg: string }> = {
-  HOT: { color: 'var(--hot)', bg: 'var(--hot-bg)' },
-  WARM: { color: 'var(--warm)', bg: 'var(--warm-bg)' },
-  COLD: { color: 'var(--muted)', bg: 'var(--cold-bg)' },
-}
+const icpColor: Record<string, string> = { HOT: '#EF4444', WARM: '#B45309', COLD: '#9CA3AF' }
+const icpBg: Record<string, string> = { HOT: 'rgba(239,68,68,0.08)', WARM: '#FFF8E7', COLD: '#F5F4FA' }
 
-export const revalidate = 60
+export default function ContactosPage() {
+  const [contacts, setContacts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default async function ContactosPage() {
-  const { data: contacts } = await supabase
-    .from('contacts')
-    .select('*, company:companies(name), deals(stage)')
-    .order('icp_score')
-    .order('created_at', { ascending: false })
+  useEffect(() => {
+    supabase
+      .from('contacts')
+      .select('*, company:companies(name, clients, employees), deals(stage)')
+      .order('icp_score')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setContacts(data ?? [])
+        setLoading(false)
+      })
+  }, [])
 
-  const all = contacts ?? []
-  const withCompany = all.filter((c: any) => c.company_id).length
-  const withoutCompany = all.length - withCompany
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#9CA3AF', fontSize: 14 }}>
+      Cargando contactos…
+    </div>
+  )
+
+  const withCompany = contacts.filter(c => c.company_id).length
 
   return (
     <div style={{ padding: '32px 36px' }}>
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Contactos</h1>
-        <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>
-          {all.length} contactos · {withCompany} con empresa · {withoutCompany} sin empresa
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: '#1A1A2E', margin: 0 }}>Contactos</h1>
+        <p style={{ color: '#6B7280', fontSize: 13, marginTop: 6 }}>
+          {contacts.length} contactos · {withCompany} con empresa · {contacts.length - withCompany} sin empresa
         </p>
       </div>
 
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,192,115,0.06)' }}>
         {/* Header */}
         <div style={{
           display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr',
-          padding: '12px 22px', borderBottom: '1px solid var(--border)',
-          fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600,
+          padding: '12px 22px', borderBottom: '1px solid #E5E7EB', background: '#F5F4FA',
+          fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700,
         }}>
           <div>Contacto</div><div>Empresa</div><div>Segmento</div><div>ICP</div><div>Fuente</div><div>Deals</div>
         </div>
 
-        {all.map((contact: any, i: number) => {
-          const icp = icpStyle[contact.icp_score]
-          return (
-            <div key={contact.id} style={{
-              display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr',
-              padding: '14px 22px',
-              borderBottom: i < all.length - 1 ? '1px solid var(--border)' : 'none',
-              alignItems: 'center',
-            }}>
-              {/* Contacto */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  background: icp.bg, border: `1px solid ${icp.color}33`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700, color: icp.color, flexShrink: 0,
-                }}>
-                  {contact.first_name[0]}{contact.last_name[0]}
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{contact.first_name} {contact.last_name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{roleLabel[contact.role] ?? contact.role} · {countryFlag[contact.country]}</div>
-                </div>
+        {contacts.map((contact, i) => (
+          <div key={contact.id} style={{
+            display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr',
+            padding: '14px 22px',
+            borderBottom: i < contacts.length - 1 ? '1px solid #E5E7EB' : 'none',
+            alignItems: 'center',
+          }}>
+            {/* Contacto */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%',
+                background: icpBg[contact.icp_score],
+                border: `1px solid ${icpColor[contact.icp_score]}33`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 800, color: icpColor[contact.icp_score], flexShrink: 0,
+              }}>
+                {contact.first_name[0]}{contact.last_name[0]}
               </div>
-
-              {/* Empresa */}
               <div>
-                {contact.company
-                  ? <div style={{ fontSize: 13 }}>{contact.company.name}</div>
-                  : <div style={{ fontSize: 12, color: 'var(--border)', fontStyle: 'italic' }}>Sin empresa en CRM</div>
-                }
-              </div>
-
-              {/* Segmento */}
-              <div>
-                <span style={{
-                  fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6,
-                  background: contact.segment === 'CONTADOR' ? 'rgba(124,92,252,0.15)' : 'rgba(82,196,26,0.1)',
-                  color: contact.segment === 'CONTADOR' ? 'var(--accent)' : 'var(--won)',
-                }}>{contact.segment}</span>
-              </div>
-
-              {/* ICP */}
-              <div>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, color: icp.color, background: icp.bg }}>
-                  {contact.icp_score}
-                </span>
-              </div>
-
-              {/* Fuente */}
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                {sourceLabel[contact.source] ?? contact.source}
-              </div>
-
-              {/* Deals */}
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {!contact.deals?.length
-                  ? <span style={{ fontSize: 11, color: 'var(--border)' }}>—</span>
-                  : contact.deals.map((d: any, di: number) => (
-                    <span key={di} style={{
-                      fontSize: 10, padding: '2px 7px', borderRadius: 5, fontWeight: 600,
-                      background: d.stage === 'closed_won' ? 'var(--won-bg)' : d.stage === 'closed_lost' ? 'var(--hot-bg)' : 'var(--surface-2)',
-                      color: d.stage === 'closed_won' ? 'var(--won)' : d.stage === 'closed_lost' ? 'var(--hot)' : 'var(--muted)',
-                    }}>
-                      {d.stage === 'closed_won' ? '✓' : d.stage === 'closed_lost' ? '✕' : '●'}
-                    </span>
-                  ))
-                }
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1A2E' }}>{contact.first_name} {contact.last_name}</div>
+                <div style={{ fontSize: 11, color: '#9CA3AF' }}>{roleLabel[contact.role] ?? contact.role} · {countryFlag[contact.country]}</div>
               </div>
             </div>
-          )
-        })}
+
+            {/* Empresa */}
+            <div>
+              {contact.company
+                ? <div>
+                    <div style={{ fontSize: 13, color: '#1A1A2E', fontWeight: 600 }}>{contact.company.name}</div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF' }}>
+                      {contact.company.clients ? `${contact.company.clients} clientes` : contact.company.employees ? `${contact.company.employees} empleados` : ''}
+                    </div>
+                  </div>
+                : <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Sin empresa en CRM</div>
+              }
+            </div>
+
+            {/* Segmento */}
+            <div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                background: contact.segment === 'CONTADOR' ? '#F0EDF8' : '#E8F8F0',
+                color: contact.segment === 'CONTADOR' ? '#5C2D91' : '#00A363',
+              }}>{contact.segment}</span>
+            </div>
+
+            {/* ICP */}
+            <div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                color: icpColor[contact.icp_score], background: icpBg[contact.icp_score],
+              }}>{contact.icp_score}</span>
+            </div>
+
+            {/* Fuente */}
+            <div style={{ fontSize: 12, color: '#6B7280' }}>{sourceLabel[contact.source] ?? contact.source}</div>
+
+            {/* Deals */}
+            <div style={{ display: 'flex', gap: 5 }}>
+              {!contact.deals?.length
+                ? <span style={{ fontSize: 11, color: '#E5E7EB' }}>—</span>
+                : contact.deals.map((d: any, di: number) => (
+                  <span key={di} style={{
+                    fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 700,
+                    background: d.stage === 'closed_won' ? '#E8F8F0' : d.stage === 'closed_lost' ? 'rgba(239,68,68,0.08)' : '#F5F4FA',
+                    color: d.stage === 'closed_won' ? '#00A363' : d.stage === 'closed_lost' ? '#EF4444' : '#9CA3AF',
+                  }}>
+                    {d.stage === 'closed_won' ? '✓' : d.stage === 'closed_lost' ? '✕' : '●'}
+                  </span>
+                ))
+              }
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
